@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api' })
+// VITE_API_BASE is set in Vercel env vars to point to the Railway backend.
+// In local dev, Vite's proxy forwards /api → localhost:8000.
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE || '/api',
+})
 
 // Projects
 export const getProjects = (params) => api.get('/projects', { params })
