@@ -11,6 +11,8 @@ from schemas import ProjectCreate, ProjectUpdate, ProjectOut
 
 router = APIRouter()
 
+UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else "uploads"
+
 
 def get_next_project_code(db: Session) -> str:
     year = datetime.now().year
@@ -109,7 +111,7 @@ async def upload_dwg(project_id: str, file: UploadFile = File(...), db: Session 
     if ext not in allowed:
         raise HTTPException(status_code=400, detail="Solo se permiten archivos .dwg y .dxf")
     filename = f"{project_id}{ext}"
-    path = os.path.join("uploads", filename)
+    path = os.path.join(UPLOAD_DIR, filename)
     with open(path, "wb") as f:
         content = await file.read()
         f.write(content)

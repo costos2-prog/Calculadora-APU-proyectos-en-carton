@@ -1,21 +1,25 @@
 import uvicorn
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import os
 
 from database import engine, Base
 from routers import projects, materials, machines, finishes, config, calculations, export
 
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+
 Base.metadata.create_all(bind=engine)
 
-os.makedirs("uploads", exist_ok=True)
+UPLOAD_DIR = "/tmp/uploads" if IS_VERCEL else "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="DIFORMA APU Calculator", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,7 +33,20 @@ app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(calculations.router, prefix="/api", tags=["calculations"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Serve uploaded files only in local dev (Vercel filesystem is ephemeral)
+if not IS_VERCEL:
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Auto-seed the database on every cold start."""
+    import sys
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+    from seed_data import seed
+    seed()
 
 
 @app.get("/")
